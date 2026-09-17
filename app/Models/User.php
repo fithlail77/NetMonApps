@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Models;
+
+use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
+
+#[Fillable(['name', 'email', 'password', 'role', 'avatar', 'is_active'])]
+#[Hidden(['password', 'remember_token'])]
+class User extends Authenticatable
+{
+    /** @use HasFactory<UserFactory> */
+    use HasApiTokens, HasFactory, HasRoles, Notifiable;
+
+    protected $guard_name = 'web';
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'is_active' => 'boolean',
+            'last_login_at' => 'datetime',
+        ];
+    }
+
+    public function devices(): HasMany
+    {
+        return $this->hasMany(Device::class, 'created_by');
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isNetworkEngineer(): bool
+    {
+        return $this->role === 'network_engineer';
+    }
+
+    public function isItManager(): bool
+    {
+        return $this->role === 'it_manager';
+    }
+
+    public function isHelpdesk(): bool
+    {
+        return $this->role === 'helpdesk';
+    }
+
+    public function canManageDevices(): bool
+    {
+        return in_array($this->role, ['admin', 'network_engineer']);
+    }
+
+    public function canViewMetrics(): bool
+    {
+        return in_array($this->role, ['admin', 'network_engineer', 'it_manager']);
+    }
+}
