@@ -44,13 +44,11 @@ class NotificationService
     private function sendEmailNotification(Alert $alert): void
     {
         try {
-            $to = config('mail.from.address', 'gudie@ptgum.com');
-
             $this->sendEmail(
-                "[{$alert->severity->toUpperCase()}] {$alert->device->name}",
+                '['.strtoupper($alert->severity)."] {$alert->device->name}",
                 $alert->message
             );
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send email notification', [
                 'alert_id' => $alert->id,
                 'error' => $e->getMessage(),
@@ -69,14 +67,14 @@ class NotificationService
             };
 
             $message = "{$severityEmoji} *NetMon Alert*\n\n";
-            $message .= "*{$alert->severity->upper()}*\n";
+            $message .= '*'.strtoupper($alert->severity)."*\n";
             $message .= "Device: {$alert->device->name}\n";
             $message .= "IP: {$alert->device->ip_address}\n";
             $message .= "Message: {$alert->message}\n";
             $message .= "Time: {$alert->triggered_at->format('Y-m-d H:i:s')}";
 
             $this->sendTelegram($message);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send Telegram notification', [
                 'alert_id' => $alert->id,
                 'error' => $e->getMessage(),
@@ -97,6 +95,7 @@ class NotificationService
 
         if (! $host || ! $port || ! $username || ! $password || ! $fromAddress || ! $toAddress) {
             Log::warning('Email SMTP not configured');
+
             return;
         }
 
@@ -126,6 +125,7 @@ class NotificationService
 
         if (! $token || ! $chatId) {
             Log::warning('Telegram not configured');
+
             return;
         }
 
