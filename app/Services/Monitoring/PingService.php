@@ -57,9 +57,11 @@ class PingService
     {
         $text = implode("\n", $output);
 
-        if (preg_match('/avg\s*=\s*[\d.]+\/([\d.]+)\/[\d.]+/', $text, $matches)) {
+        if (preg_match('/(?:rtt|round-trip)\s+min\/avg\/max\/(?:mdev|stddev)\s*=\s*[\d.]+\/([\d.]+)\/[\d.]+/', $text, $matches)) {
             $result['latency'] = (float) $matches[1];
-        } elseif (preg_match('/time[=:](\d+)ms/', $text, $matches)) {
+        } elseif (preg_match('/avg\s*=\s*[\d.]+\/([\d.]+)\/[\d.]+/', $text, $matches)) {
+            $result['latency'] = (float) $matches[1];
+        } elseif (preg_match('/time[=<](\d+(?:\.\d+)?)\s*ms/i', $text, $matches)) {
             $result['latency'] = (float) $matches[1];
         }
 
