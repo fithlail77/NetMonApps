@@ -14,11 +14,22 @@ class Setting extends Model
 
     public static function getValue(string $key, mixed $default = null): mixed
     {
-        $setting = Cache::remember("setting_{$key}", 3600, function () use ($key) {
-            return static::where('key', $key)->first();
-        });
+        $cacheKey = "setting_{$key}";
 
-        return $setting?->value ?? $default;
+        $cached = Cache::get($cacheKey);
+
+        if ($cached !== null && ! is_string($cached)) {
+            Cache::forget($cacheKey);
+            $cached = null;
+        }
+
+        if ($cached === null) {
+            $cached = Cache::remember($cacheKey, 3600, function () use ($key) {
+                return static::where('key', $key)->value('value');
+            });
+        }
+
+        return $cached ?? $default;
     }
 
     public static function setValue(string $key, mixed $value, string $group = 'general'): void

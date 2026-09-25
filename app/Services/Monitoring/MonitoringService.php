@@ -96,9 +96,10 @@ class MonitoringService
         foreach ($devices as $device) {
             try {
                 $results[] = $this->checkDevice($device);
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 Log::error("Failed to check device {$device->name}", [
                     'error' => $e->getMessage(),
+                    'exception' => $e::class,
                 ]);
             }
         }
@@ -141,9 +142,9 @@ class MonitoringService
             'to' => $newStatus,
         ]);
 
-        if ($oldStatus === 'up' && $newStatus === 'down') {
+        if ($oldStatus !== 'down' && $newStatus === 'down') {
             event(new \App\Events\DeviceDown($device));
-        } elseif ($oldStatus === 'down' && $newStatus === 'up') {
+        } elseif ($oldStatus === 'down' && $newStatus !== 'down') {
             event(new \App\Events\DeviceUp($device));
         }
     }
