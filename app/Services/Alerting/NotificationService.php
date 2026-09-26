@@ -3,6 +3,7 @@
 namespace App\Services\Alerting;
 
 use App\Models\Alert;
+use App\Models\Device;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -27,17 +28,29 @@ class NotificationService
     {
         $alert->load('device');
 
-        $message = "✅ RECOVERY: {$alert->device->name} is back online";
+        $this->sendDeviceRecoveryNotification($alert->device);
+    }
 
-        if (Setting::getValue('alert_email_enabled', '1') === '1') {
-            $this->sendEmail(
-                "Recovery: {$alert->device->name}",
-                $message
-            );
-        }
+    public function sendDeviceRecoveryNotification(Device $device): void
+    {
+        try {
+            $message = "✅ RECOVERY: {$device->name} is back online";
 
-        if (Setting::getValue('alert_telegram_enabled', '0') === '1') {
-            $this->sendTelegram($message);
+            if (Setting::getValue('alert_email_enabled', '1') === '1') {
+                $this->sendEmail(
+                    "Recovery: {$device->name}",
+                    $message
+                );
+            }
+
+            if (Setting::getValue('alert_telegram_enabled', '0') === '1') {
+                $this->sendTelegram($message);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to send recovery notification', [
+                'device_id' => $device->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

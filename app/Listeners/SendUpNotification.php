@@ -11,11 +11,12 @@ class SendUpNotification
     public function __construct(
         private AlertService $alertService,
         private NotificationService $notificationService
-    ) {
-    }
+    ) {}
 
     public function handle(DeviceUp $event): void
     {
         $this->alertService->resolveDeviceAlerts($event->device);
+
+        $this->notificationService->sendDeviceRecoveryNotification($event->device);
     }
 }
