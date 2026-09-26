@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Device;
 use App\Models\DeviceStatusLog;
 use Carbon\Carbon;
-use Carbon\CarbonPeriod;
 use Illuminate\Support\Collection;
 
 class SlaService
@@ -131,20 +130,20 @@ class SlaService
 
             if ($log->changed_at->gte($end)) {
                 if ($this->isDownStatus($logs->where('changed_at', '<=', $periodStart)->last()?->status ?? 'up')) {
-                    $downtimeSeconds += $end->diffInSeconds($periodStart);
+                    $downtimeSeconds += abs($end->diffInSeconds($periodStart));
                 }
                 break;
             }
 
             if ($this->isDownStatus($logs->where('changed_at', '<=', $periodStart)->last()?->status ?? 'up')) {
-                $downtimeSeconds += $log->changed_at->diffInSeconds($periodStart);
+                $downtimeSeconds += abs($log->changed_at->diffInSeconds($periodStart));
             }
 
             $periodStart = $log->changed_at->copy();
         }
 
         if ($this->isDownStatus($logs->last()->status ?? 'up') && $periodStart->lt($end)) {
-            $downtimeSeconds += $end->diffInSeconds($periodStart);
+            $downtimeSeconds += abs($end->diffInSeconds($periodStart));
         }
 
         return $downtimeSeconds;
