@@ -37,21 +37,32 @@ class DashboardController extends Controller
                 return $metrics->first();
             });
 
-        $devices = Device::with('deviceType')
-            ->select('devices.*')
-            ->selectRaw('(SELECT value FROM device_metrics WHERE device_id = devices.id AND metric_type = ? ORDER BY recorded_at DESC LIMIT 1) as latency', ['latency'])
-            ->latest()
-            ->paginate(10);
+        $devices = $this->deviceQuery()->paginate(10);
 
         return view('dashboard.index', compact(
             'totalDevices',
+            'devices',
             'devicesUp',
             'devicesDown',
             'devicesWarning',
             'recentAlerts',
             'deviceStatus',
-            'recentMetrics',
-            'devices'
+            'recentMetrics'
         ));
+    }
+
+    public function deviceList()
+    {
+        return view('dashboard._device-list', [
+            'devices' => $this->deviceQuery()->paginate(10),
+        ]);
+    }
+
+    private function deviceQuery()
+    {
+        return Device::with('deviceType')
+            ->select('devices.*')
+            ->selectRaw('(SELECT value FROM device_metrics WHERE device_id = devices.id AND metric_type = ? ORDER BY recorded_at DESC LIMIT 1) as latency', ['latency'])
+            ->latest();
     }
 }

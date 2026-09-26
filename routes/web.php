@@ -19,6 +19,7 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 // Protected Routes
 Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/devices', [DashboardController::class, 'deviceList'])->name('dashboard.devices');
 
     // Devices
     Route::resource('devices', DeviceController::class);
