@@ -21,6 +21,8 @@ class Device extends Model
         'location',
         'description',
         'status',
+        'consecutive_failures',
+        'consecutive_successes',
         'last_seen_at',
         'created_by',
         'updated_by',
@@ -31,6 +33,8 @@ class Device extends Model
         return [
             'last_seen_at' => 'datetime',
             'snmp_port' => 'integer',
+            'consecutive_failures' => 'integer',
+            'consecutive_successes' => 'integer',
         ];
     }
 

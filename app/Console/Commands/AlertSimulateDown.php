@@ -49,10 +49,18 @@ class AlertSimulateDown extends Command
         $previousStatus = $device->status;
         $this->line("Device: {$device->name} ({$device->ip_address}) status: {$previousStatus}");
 
+        $prepareUpdates = [
+            'status' => 'up',
+            'consecutive_failures' => max(0, MonitoringService::downThreshold() - 1),
+            'consecutive_successes' => 0,
+        ];
+
         if ($previousStatus !== 'up') {
-            $device->update(['status' => 'up']);
             $this->line("Forced status {$previousStatus} -> up so the transition fires.");
         }
+
+        $this->line('Debounce primed: failures='.$prepareUpdates['consecutive_failures'].' (1 fake ping triggers down).');
+        $device->update($prepareUpdates);
 
         $blockedAlerts = $device->alerts()->whereIn('status', ['triggered', 'acknowledged'])->count();
         if ($blockedAlerts > 0) {
@@ -137,7 +145,9 @@ class AlertSimulateDown extends Command
                 $message = new class
                 {
                     public ?string $subject = null;
+
                     public mixed $to = null;
+
                     public mixed $from = null;
 
                     public function subject(string $subject): static
@@ -198,8 +208,8 @@ class AlertSimulateDown extends Command
 
         $body = $requests->last()[0]->data();
         $this->info('PASS: Telegram API called.');
-        $this->line('  chat_id: ' . ($body['chat_id'] ?? '-'));
-        $this->line('  text: ' . str_replace("\n", ' | ', (string) ($body['text'] ?? '')));
+        $this->line('  chat_id: '.($body['chat_id'] ?? '-'));
+        $this->line('  text: '.str_replace("\n", ' | ', (string) ($body['text'] ?? '')));
 
         return true;
     }
@@ -214,16 +224,21 @@ class AlertSimulateDown extends Command
 
         $mail = end($mailSpy->sent);
         $this->info('PASS: email captured (SMTP not contacted).');
-        $this->line('  to: ' . json_encode($mail['to']));
-        $this->line('  subject: ' . ($mail['subject'] ?? '-'));
-        $this->line('  body: ' . str_replace("\n", ' | ', (string) $mail['body']));
+        $this->line('  to: '.json_encode($mail['to']));
+        $this->line('  subject: '.($mail['subject'] ?? '-'));
+        $this->line('  body: '.str_replace("\n", ' | ', (string) $mail['body']));
 
         return true;
     }
 
     private function restore(Device $device, $alert, $startedAt): void
     {
-        $device->refresh()->update(['status' => 'up', 'last_seen_at' => now()]);
+        $device->refresh()->update([
+            'status' => 'up',
+            'last_seen_at' => now(),
+            'consecutive_failures' => 0,
+            'consecutive_successes' => 0,
+        ]);
 
         DeviceStatusLog::create([
             'device_id' => $device->id,

@@ -2,14 +2,22 @@
 
 namespace App\Services\Monitoring;
 
+use App\Events\DeviceDown;
+use App\Events\DeviceUp;
 use App\Models\Device;
 use App\Models\DeviceMetric;
 use App\Models\DeviceStatusLog;
+use App\Models\Setting;
 use Illuminate\Support\Facades\Log;
 
 class MonitoringService
 {
+    public const DEFAULT_DOWN_CHECKS = 3;
+
+    public const DEFAULT_UP_CHECKS = 2;
+
     private PingService $pingService;
+
     private SnmpService $snmpService;
 
     public function __construct(PingService $pingService, SnmpService $snmpService)
@@ -18,11 +26,21 @@ class MonitoringService
         $this->snmpService = $snmpService;
     }
 
+    public static function downThreshold(): int
+    {
+        return max(1, (int) Setting::getValue('debounce_down_checks', (string) self::DEFAULT_DOWN_CHECKS));
+    }
+
+    public static function upThreshold(): int
+    {
+        return max(1, (int) Setting::getValue('debounce_up_checks', (string) self::DEFAULT_UP_CHECKS));
+    }
+
     public function checkDevice(Device $device): array
     {
         $hasLogs = DeviceStatusLog::where('device_id', $device->id)->exists();
 
-        if (!$hasLogs) {
+        if (! $hasLogs) {
             DeviceStatusLog::create([
                 'device_id' => $device->id,
                 'status' => $device->status,
@@ -59,16 +77,33 @@ class MonitoringService
 
         $this->storeMetrics($device, $metrics);
 
+        $pingOk = $pingResult['status'] === 'up';
         $previousStatus = $device->status;
-        $newStatus = $pingResult['status'];
+        $newStatus = $previousStatus;
 
-        if ($newStatus === 'up' && isset($metrics['cpu_usage']) && $metrics['cpu_usage'] > 90) {
-            $newStatus = 'warning';
+        if ($pingOk) {
+            $device->consecutive_successes = min(255, $device->consecutive_successes + 1);
+            $device->consecutive_failures = 0;
+        } else {
+            $device->consecutive_failures = min(255, $device->consecutive_failures + 1);
+            $device->consecutive_successes = 0;
+        }
+
+        if ($pingOk && $device->consecutive_successes >= self::upThreshold()) {
+            $newStatus = 'up';
+
+            if (isset($metrics['cpu_usage']) && $metrics['cpu_usage'] > 90) {
+                $newStatus = 'warning';
+            }
+        } elseif (! $pingOk && $device->consecutive_failures >= self::downThreshold()) {
+            $newStatus = 'down';
         }
 
         $device->update([
             'status' => $newStatus,
-            'last_seen_at' => $newStatus === 'up' ? now() : $device->last_seen_at,
+            'consecutive_failures' => $device->consecutive_failures,
+            'consecutive_successes' => $device->consecutive_successes,
+            'last_seen_at' => $pingOk ? now() : $device->last_seen_at,
         ]);
 
         if ($previousStatus !== $newStatus) {
@@ -143,9 +178,9 @@ class MonitoringService
         ]);
 
         if ($oldStatus !== 'down' && $newStatus === 'down') {
-            event(new \App\Events\DeviceDown($device));
+            event(new DeviceDown($device));
         } elseif ($oldStatus === 'down' && $newStatus !== 'down') {
-            event(new \App\Events\DeviceUp($device));
+            event(new DeviceUp($device));
         }
     }
 }
